@@ -1,0 +1,4 @@
+cmnd-extension-fastapi/.env
+cmnd-extension-flask/.env
+cmnd-extension-fastapi/cmnd/constants/__pycache__
+cmnd-extension-flask/cmnd/constants/__pycache__
