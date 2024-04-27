@@ -2,7 +2,9 @@ from flask import Flask, request, jsonify, abort
 import os
 from dotenv import load_dotenv
 from flask_cors import CORS
-from tools import tools, retrieve_by_view, retrieve_by_bedroom, retrieve_by_individual,retrieve_all
+from tools import tools
+import services.firebase.firebase
+
 
 # Load environment variables
 load_dotenv()

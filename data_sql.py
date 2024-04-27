@@ -12,7 +12,7 @@ db = pymysql.connect(
 def create_room(room_data):
     # Create a new room record in the database.
     cursor = db.cursor()
-    sql = "INSERT INTO Rooms (RoomNumber, BuildingName, RoomLatitude, RoomLongitude, RoomSize, Beds, Individuals, ViewDescription) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"
+    sql = "INSERT INTO Rooms (RoomNumber, BuildingName, RoomLatitude, RoomLongitude, RoomSize, Beds, Individuals, ViewDescription, price) VALUES (%s, %s, %s, %s, %s, %s, %s, %s , %s)"
     values = (
         room_data['RoomNumber'],
         room_data['BuildingName'],
@@ -21,7 +21,8 @@ def create_room(room_data):
         room_data['RoomSize'],
         room_data['Beds'],
         room_data['Individuals'],
-        room_data['ViewDescription']
+        room_data['ViewDescription'],
+        room_data['price']
     )
     cursor.execute(sql, values)
     db.commit()
