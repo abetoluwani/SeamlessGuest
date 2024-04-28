@@ -7,7 +7,7 @@ class IRepairRequestService:
 
     def get_initial_schema(self, data=None):
         initial_schema = {
-            # 'id': create_id(),
+            'id': create_id(),
             'room_number': "",
             'description': "",
             'status': "pending",

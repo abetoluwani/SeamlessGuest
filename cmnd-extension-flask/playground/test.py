@@ -5,7 +5,8 @@ from services.repairs.repairs import RepairRequestService
 
 
 repair = RepairRequestService.create({
-  "email": "priscykellyr@gmail.com",
+  "id": "",
+  "email": "prisr@gmail.com",
   "description": "Leaking sink",
   "room_number": "223"
 })
