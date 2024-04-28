@@ -1,4 +1,3 @@
-import pymysql
 from pydantic import BaseModel, Field
 import os
 import requests

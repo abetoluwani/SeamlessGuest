@@ -8,3 +8,4 @@ firebase-admin
 python-dotenv
 uuid
 flask_cors
+pymysql
