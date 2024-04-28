@@ -120,7 +120,7 @@ def make_repair_request(email: str, room_number: str, description: str):
 
         return {
             'message': 'Repair request submitted successfully, You can use your Request ID to process your request',
-            'request_id': create_id(),
+            'request_id': 'oih876fyvyu',
         }
     except Exception as e:
         print("Error submitting repair request:", e)
