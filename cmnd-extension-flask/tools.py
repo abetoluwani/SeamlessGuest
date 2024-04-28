@@ -89,8 +89,8 @@ def get_all():
 
         return filtered_properties
 
-def get_by_id(id):
-    property = PropertyService.get_by_id(id)
+def get_by_id(room_number):
+    property = PropertyService.get_by_id(room_number)
     if property:
         return PropertyService.obscure(property)
     else:

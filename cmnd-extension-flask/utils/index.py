@@ -15,5 +15,4 @@ def create_id():
     """
     Function to generate a unique ID with max 10 characters.
     """
-    return str(uuid.uuid4())[:10]
-
+    return str(uuid.uuid4())[:5]
