@@ -4,3 +4,6 @@ httpx
 pydantic
 flask
 requests
+firebase-admin
+dotenv
+uuid

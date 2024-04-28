@@ -24,7 +24,7 @@ class IPaystackService:
         self.base_url = "https://api.paystack.co"
         self.percentage = 1.5 / 100  # 1.5%
         self.redirect_url = "https://standard.paystack.co/close"
-        self.callback_url = "https://0e03-46-252-103-118.ngrok-free.app/payments/callback"
+        self.callback_url = "https://seamlessguest.onrender.com/payments/callback"
 
     def initialize(self, options):
         try:
