@@ -32,7 +32,7 @@ class IPropertyService:
         doc_ref = self.model.where(filter=FieldFilter('RoomNumber', '==', id))
         doc_list = doc_ref.get()
 
-        if(doc_list.count > 0):
+        if(doc_list.count() > 0):
             doc = doc_list[0]
             if doc.exists:
                 return doc.to_dict()
@@ -47,7 +47,7 @@ class IPropertyService:
         doc_ref = self.model.where(filter=And(filters=[FieldFilter('RoomNumber', '==', id), FieldFilter('PurchasedBy', '==', email)]))
         doc_list = doc_ref.get()
 
-        if(doc_list.count > 0):
+        if(doc_list.count() > 0):
             doc = doc_list[0]
             if doc.exists:
                 return doc.to_dict()
