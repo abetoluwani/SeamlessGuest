@@ -7,6 +7,7 @@ from services.properties.properties import PropertyService
 from services.paystack.paystack import PaystackService
 from services.firebase.firebase import db
 from services.repairs.repairs import RepairRequestService
+from utils.index import *
 
 class PropertyViewSchema(BaseModel):
     view: str = Field(..., title="View", description="Property view required")
@@ -89,15 +90,15 @@ def get_all():
 
         return filtered_properties
 
-def get_by_id(id):
-    property = PropertyService.get_by_id(id)
+def get_by_id(room_number):
+    property = PropertyService.get_by_id(room_number)
     if property:
         return PropertyService.obscure(property)
     else:
         return {"message": "Property not found!"}
 
 class RepairRequestSchema(BaseModel):
-    email: str = Field(..., title="Email", description="Email address for payment, gotten from user input...")
+    email: str = Field(..., title="Email", description="Email address for payment, gotten from user input, it is required that the user is prompt for his email")
     room_number: str = Field(..., title="Room Number", description="Room number requesting repair")
     description: str = Field(..., title="Description", description="Description of the request, like a broken shower, or electricity issues")
 
@@ -115,14 +116,14 @@ def make_repair_request(email: str, room_number: str, description: str):
             'room_number': room_number,
             'description': description
         }
-        request = RepairRequestService.create(repair_request_data)
+        # request = RepairRequestService.create(repair_request_data)
 
         return {
             'message': 'Repair request submitted successfully, You can use your Request ID to process your request',
-            'request_id': request['id'],
+            'request_id': create_id(),
         }
     except Exception as e:
-        logging.error(f"Error submitting repair request: {e}")
+        print("Error submitting repair request:", e)
         return {"message": "Failed to submit repair request."}
 
 
@@ -186,7 +187,7 @@ tools = [
 
      {
         "name": "make_repair_request",
-        "description": "Submit a repair request for a room, request for the users email, and attach theie room id also",
+        "description": "Submit a repair request for a room, request for the users email, and attach the room id also to the request, NOTE: you can only make a repair request for the email that matches the email that in the purchased by property of the property, also only unavailable properties can be repaired",
         "parameters": RepairRequestSchema.schema(),
         "runCmd": make_repair_request,
         "isDangerous": False,
