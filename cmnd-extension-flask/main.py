@@ -2,8 +2,8 @@ from flask import Flask, request, jsonify, abort
 from dotenv import load_dotenv
 from flask_cors import CORS
 from tools import tools
-from api.property.property import app as property_routes
-from api.payments.payments import app as payment_routes
+from playground.api.property.property import app as property_routes
+from playground.api.payments.payments import app as payment_routes
 
 # Load environment variables
 load_dotenv()
