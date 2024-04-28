@@ -1,14 +1,19 @@
 from flask import Flask, request, jsonify, abort
-import os
 from dotenv import load_dotenv
 from flask_cors import CORS
 from tools import tools
-import services.firebase.firebase
-
+from api.property.property import app as property_routes
+from api.payments.payments import app as payment_routes
 
 # Load environment variables
 load_dotenv()
 
+#  init db
+import services.firebase.firebase as firebase
+
+# # playground
+# import playground.test as test
+# import playground.tests.payment as paystack_test
 
 app = Flask(__name__)
 CORS(app)
@@ -29,6 +34,7 @@ def cmnd_tools_endpoint():
     ]
     return jsonify({"tools": tools_response})
 
+
 @app.route("/run-cmnd-tool", methods=['POST'])
 def run_cmnd_tool_endpoint():
     data = request.json
@@ -42,6 +48,9 @@ def run_cmnd_tool_endpoint():
         return jsonify(result)
     except Exception as e:
         abort(500, description=str(e))
+
+app.register_blueprint(property_routes, url_prefix='/property')
+app.register_blueprint(payment_routes, url_prefix='/payments')
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8888, debug=True)

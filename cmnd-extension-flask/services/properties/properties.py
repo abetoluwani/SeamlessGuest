@@ -1,6 +1,9 @@
-from ..firebase import db
+from services.firebase.firebase import db
+from google.cloud.firestore_v1.base_query import FieldFilter
+from utils.index import get_timestamp
+from firebase_admin import firestore
 
-class PropertyService:
+class IPropertyService:
     def __init__(self):
         self.model = db.collection("rooms")
 
@@ -14,18 +17,29 @@ class PropertyService:
             'Beds': "",
             'Individuals': "",
             'ViewDescription': "",
+            'duration': 1,
+            'PurchaseCount': 0,
+            'available': True, 
             'price': 0,
+            'image': '',
+            'PurchasedBy': '',
+            'PurchaseDate': '',
             **(data or {})
         }
         return initial_schema
 
     def get_by_id(self, id):
-        doc_ref = self.model.where('RoomNumber', '==', id)
-        doc = doc_ref.get()
-        if doc.exists:
-            return doc.to_dict()
-        else:
-            return None
+        try:
+            doc_ref = self.model.where(
+                filter=FieldFilter('RoomNumber', '==', id)
+            )
+            doc = doc_ref.get()[0]
+            if doc.exists:
+                return doc.to_dict()
+            else:
+                return None
+        except:
+            raise Exception('Property is not available!')
 
     def get_all(self):
         rooms = []
@@ -36,13 +50,18 @@ class PropertyService:
 
     def create(self, room_data):
         initial_data = self.get_initial_schema(room_data)
-        doc_ref = self.model.document()
+        doc_ref = self.model.document(initial_data['RoomNumber'])
         doc_ref.set(initial_data)
         return initial_data
 
+
+# MY EAR!
     def update(self, id, update_data):
-        doc_ref = self.model.document(id)
-        doc_ref.update(update_data)
+
+        #TODO: after migrations, change this scheme
+        doc_ref_id = self.model.where(filter=FieldFilter('RoomNumber', '==', id)).get()[0].id
+        doc_ref = self.model.document(doc_ref_id)
+        doc_ref.set(update_data, merge=True)
         return update_data
 
     def delete(self, id):
@@ -50,40 +69,17 @@ class PropertyService:
         doc_ref.delete()
         return True
 
-# Example usage:
-property_service = PropertyService()
+    def purchase(self, id, email):
+        property = self.get_by_id(id)
+        newProperty = {
+            **property, 
+            'available': False,
+            'PurchasedBy': email,
+            'PurchaseDate': get_timestamp(),
+            'PurchaseCount': firestore.Increment(1)
+        }
+        self.update(id, newProperty)
+        return newProperty
 
-# Create a new room
-room_data = {
-    'RoomNumber': "301",
-    'BuildingName': 'Main Building',
-    'RoomLatitude': 37.7749,
-    'RoomLongitude': -122.4194,
-    'RoomSize': 180,
-    'Beds': 1,
-    'Individuals': 1,
-    'ViewDescription': 'City View',
-    'price': 500
-}
-property_service.create(room_data)
 
-# Read all rooms
-all_rooms = property_service.get_all()
-print("All Rooms:")
-for room in all_rooms:
-    print(room)
-
-# # Update a room
-# update_data = {
-#     'BuildingName': 'New Building',
-#     'RoomLatitude': 37.7749,
-#     'RoomLongitude': -122.4194,
-#     'RoomSize': 180,
-#     'Beds': 1,
-#     'Individuals': 1,
-#     'ViewDescription': 'City View'
-# }
-# property_service.update("301", update_data)
-
-# Delete a room
-# property_service.delete("301")
+PropertyService = IPropertyService()

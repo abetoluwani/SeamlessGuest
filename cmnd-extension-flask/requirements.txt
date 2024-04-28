@@ -4,3 +4,4 @@ httpx
 pydantic
 flask
 requests
+firebase-admin

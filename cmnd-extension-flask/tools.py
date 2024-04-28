@@ -4,6 +4,9 @@ import os
 import requests
 import json
 import logging
+from services.properties.properties import PropertyService
+from services.paystack.paystack import PaystackService
+from services.firebase.firebase import db
 
 
 class PropertyViewSchema(BaseModel):
@@ -13,12 +16,12 @@ class PropertyBedroomSchema(BaseModel):
     bedroom: int = Field(..., title="Bedroom", description="Number of bedrooms required")
 
 class PropertyAllSchema(BaseModel):
-    additional_parameters: str = Field(..., title="Additional Parameters", description="Additional parameters for retrieving all properties")
+    additional_parameters: str = Field("", title="Additional Parameters", description="Additional parameters for retrieving all properties")
 
 class PaymentSchema(BaseModel):
-    room_number: int = Field(..., title="Room Number", description="Room number to pay for")
-    payment_amount: float = Field(..., title="Payment Amount", description="Amount to pay")
-    email: str = Field(..., title="Email", description="Email address for payment")
+    room_number: str = Field(..., title="Room Number", description="Room number to pay")
+    # payment_amount: float = Field(..., title="Payment Amount", description="Amount to pay, from the Property")
+    email: str = Field(..., title="Email", description="Email address for payment, gotten from user input...")
 
 class CreatePaystackPageSchema(BaseModel):
     name: str = Field(..., title="Page Name", description="Name of the page")
@@ -55,115 +58,55 @@ def custom_json_schema(model):
         "required": schema.get("required", [])
     }
 
-def retrieve_by_view(view: str):
-    cursor = db.cursor()
-    sql = "SELECT * FROM Rooms WHERE ViewDescription = %s"
-    cursor.execute(sql, (view,))
-    return cursor.fetchall()
-
-def retrieve_by_bedroom(bedroom: int):
-    cursor = db.cursor()
-    sql = "SELECT * FROM Rooms WHERE Beds = %s"
-    cursor.execute(sql, (bedroom,))
-    return cursor.fetchall()
-
-def retrieve_by_individual(individuals: int):
-    cursor = db.cursor()
-    sql = "SELECT * FROM Rooms WHERE Individuals = %s"
-    cursor.execute(sql, (individuals,))
-    return cursor.fetchall()
-
-def retrieve_all():
-    cursor = db.cursor()
-    sql = "SELECT * FROM Rooms"
-    cursor.execute(sql)
-    return cursor.fetchall()
-
-def create_paystack_page():
-    url = "https://api.paystack.co/page"
-    headers = {
-        "Authorization": f"Bearer {os.getenv('PAYSTACK_KEY')}",
-        "Content-Type": "application/json"
-    }
-    data = {
-        "name": "Buttercup Brunch",
-        "amount": 500000,
-        "description": "Gather your friends for the ritual that is brunch"
-    }
-    response = requests.post(url, headers=headers, json=data)
-    if response.status_code == 200:
-        logging.info("Paystack page created successfully")
-        return response.json()
-    else:
-        error_msg = f"Failed to create Paystack page. Status code: {response.status_code}"
-        logging.error(error_msg)
-        raise Exception(error_msg)
-
-def initialize_transaction(amount, email, ref=None):
-    api_secret = os.getenv('PAYSTACK_KEY')
-    data = {'amount': amount, 'email': email, 'reference': ref}
-    headers = {'Authorization': f'Bearer {api_secret}'}
-    url = 'https://api.paystack.co/transaction/initialize'
-    response = requests.post(url, headers=headers, json=data)
-    if response.status_code == 200:
-        logging.info("Transaction initialized successfully")
-        return response.json()
-    else:
-        error_msg = f"Failed to initialize transaction. Status code: {response.status_code}"
-        logging.error(error_msg)
-        raise Exception(error_msg)
-
-def verify_transaction(ref):
-    api_secret = os.getenv('PAYSTACK_KEY')
-    headers = {'Authorization': f'Bearer {api_secret}'}
-    url = f'https://api.paystack.co/transaction/verify/{ref}'
-    response = requests.get(url, headers=headers)
-    if response.status_code == 200:
-        logging.info("Transaction verified successfully")
-        return response.json()
-    else:
-        error_msg = f"Failed to verify transaction. Status code: {response.status_code}"
-        logging.error(error_msg)
-        raise Exception(error_msg)
-
-def charge_transaction(auth_code=None, amount=None, email=None, reference=None):
-    api_secret = os.getenv('PAYSTACK_KEY')
-    data = {'authorization_code': auth_code, 'amount': amount, 'email': email, 'reference': reference}
-    headers = {'Authorization': f'Bearer {api_secret}'}
-    url = 'https://api.paystack.co/transaction/charge'
-    response = requests.post(url, headers=headers, json=data)
-    if response.status_code == 200:
-        logging.info("Transaction charged successfully")
-        return response.json()
-    else:
-        error_msg = f"Failed to charge transaction. Status code: {response.status_code}"
-        logging.error(error_msg)
-        raise Exception(error_msg)
-
-def make_payment(room_number: int, payment_amount: float, email: str):
+def make_payment(room_number: str, email: str):
     try:
-        ref = f"room-{room_number}-payment"
-        initialize_transaction
-        response = initialize_transaction(int(payment_amount * 100), email, ref)
+        property = PropertyService.get_by_id(room_number)
+        response = PaystackService.initialize({
+            'email': email,
+            'amount': property['price'],
+            'callback_url': PaystackService.callback_url,
+            'metadata': {
+                'email': email,
+                'room_number': room_number,
+                'amount': property['price'],
+            }
+        })
+        return {
+            'paymentLink': response['authorization_url'],
+        }
 
-        if response.get("status") == True:
-            auth_code = response.get("data").get("authorization_code")
-            response = charge_transaction(auth_code, int(payment_amount * 100), email, ref)
-            if response.get("status") == True:
-                logging.info("Payment successful")
-                return {"message": "Payment successful"}
-            else:
-                logging.error("Payment failed during charge")
-                return {"message": "Payment failed"}
-        else:
-            logging.error("Failed to initialize transaction")
-            return {"message": "Failed to initialize transaction"}
     except Exception as e:
         logging.error(f"Error making payment: {e}")
         return {"message": str(e)}
 
-# Define tool configurations here
+def get_all():
+    properties = PropertyService.get_all()
 
+    # Define the allowed fields
+    allowed_fields = [
+        'RoomNumber',
+        'BuildingName',
+        'RoomLatitude',
+        'RoomLongitude',
+        'RoomSize',
+        'Beds',
+        'Individuals',
+        'ViewDescription',
+        'price',
+        'available'
+    ]
+
+    # Filter and obscure properties
+    filtered_properties = []
+    for property_data in properties:
+        filtered_property = {}
+        for field in allowed_fields:
+            filtered_property[field] = property_data.get(field, '[Obscured]')
+        filtered_properties.append(filtered_property)
+
+    return filtered_properties
+
+# Define tool configurations here
 tools = [
     # { // 5 bedrooms
     #     "name": "retrieve_by_bedroom",
@@ -177,10 +120,10 @@ tools = [
     #     "rerunWithDifferentParameters": True
     # },
     {
-        "name": "retrieve_all",
-        "description": "Retrieve all properties, and list each property information and price",
-        "parameters": custom_json_schema(PropertyAllSchema),
-        "runCmd": retrieve_all,
+        "name": "get_all_properties",
+        "description": "Get all properties, and list each property information and price",
+        "parameters": PropertyAllSchema.schema(),
+        "runCmd": get_all,
         "isDangerous": False,
         "functionType": "backend",
         "isLongRunningTool": False,
@@ -189,7 +132,7 @@ tools = [
     },
     {
         "name": "make_payment",
-        "description": "Make a payment for a room",
+        "description": "Make a payment for a room, request for the users email, and attach the room id which they requested!",
         "parameters": custom_json_schema(PaymentSchema),
         "runCmd": make_payment,
         "isDangerous": False,
@@ -199,48 +142,48 @@ tools = [
         "rerunWithDifferentParameters": True
     },
 
-    {
-        "name": "create_paystack_page",
-        "description": "Create a Paystack page",
-        "parameters": custom_json_schema(CreatePaystackPageSchema),
-        "runCmd": create_paystack_page,
-        "isDangerous": False,
-        "functionType": "backend",
-        "isLongRunningTool": False,
-        "rerun": True,
-        "rerunWithDifferentParameters": True
-    },
-    {
-        "name": "initialize_transaction",
-        "description": "Initialize a Paystack transaction",
-        "parameters": custom_json_schema(InitializeTransactionSchema),
-        "runCmd": initialize_transaction,
-        "isDangerous": False,
-        "functionType": "backend",
-        "isLongRunningTool": False,
-        "rerun": True,
-        "rerunWithDifferentParameters": True
-    },
-    {
-        "name": "verify_transaction",
-        "description": "Verify a Paystack transaction",
-        "parameters": custom_json_schema(VerifyTransactionSchema),
-        "runCmd": verify_transaction,
-        "isDangerous": False,
-        "functionType": "backend",
-        "isLongRunningTool": False,
-        "rerun": True,
-        "rerunWithDifferentParameters": True
-    },
-    {
-        "name": "charge_transaction",
-        "description": "Charge a Paystack transaction",
-        "parameters": custom_json_schema(ChargeTransactionSchema),
-        "runCmd": charge_transaction,
-        "isDangerous": False,
-        "functionType": "backend",
-        "isLongRunningTool": False,
-        "rerun": True,
-        "rerunWithDifferentParameters": True
-    }
+    # {
+    #     "name": "create_paystack_page",
+    #     "description": "Create a Paystack page",
+    #     "parameters": custom_json_schema(CreatePaystackPageSchema),
+    #     "runCmd": create_paystack_page,
+    #     "isDangerous": False,
+    #     "functionType": "backend",
+    #     "isLongRunningTool": False,
+    #     "rerun": True,
+    #     "rerunWithDifferentParameters": True
+    # },
+    # {
+    #     "name": "initialize_transaction",
+    #     "description": "Initialize a Paystack transaction",
+    #     "parameters": custom_json_schema(InitializeTransactionSchema),
+    #     "runCmd": initialize_transaction,
+    #     "isDangerous": False,
+    #     "functionType": "backend",
+    #     "isLongRunningTool": False,
+    #     "rerun": True,
+    #     "rerunWithDifferentParameters": True
+    # },
+    # {
+    #     "name": "verify_transaction",
+    #     "description": "Verify a Paystack transaction",
+    #     "parameters": custom_json_schema(VerifyTransactionSchema),
+    #     "runCmd": verify_transaction,
+    #     "isDangerous": False,
+    #     "functionType": "backend",
+    #     "isLongRunningTool": False,
+    #     "rerun": True,
+    #     "rerunWithDifferentParameters": True
+    # },
+    # {
+    #     "name": "charge_transaction",
+    #     "description": "Charge a Paystack transaction",
+    #     "parameters": custom_json_schema(ChargeTransactionSchema),
+    #     "runCmd": charge_transaction,
+    #     "isDangerous": False,
+    #     "functionType": "backend",
+    #     "isLongRunningTool": False,
+    #     "rerun": True,
+    #     "rerunWithDifferentParameters": True
+    # }
 ]
