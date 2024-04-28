@@ -2,6 +2,18 @@ from services.firebase.firebase import *
 from utils.index import create_id 
 
 class IRepairRequestService:
+    # def __init__(self):
+    #     self.model = db.collection("repair_requests")
+
+    # def get_initial_schema(self, data=None):
+    #     initial_schema = {
+    #         'id': create_id(),
+    #         'room_number': "",
+    #         'description': "",
+    #         'status': "pending",
+    #         **(data or {})
+    #     }
+    #     return initial_schema
     def __init__(self):
         self.model = db.collection("repair_requests")
 
