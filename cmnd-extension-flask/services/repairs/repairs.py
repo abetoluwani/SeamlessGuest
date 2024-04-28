@@ -7,7 +7,6 @@ class IRepairRequestService:
 
     def get_initial_schema(self, data=None):
         initial_schema = {
-            'id': create_id(),
             'room_number': "",
             'description': "",
             'status': "pending",
@@ -17,7 +16,10 @@ class IRepairRequestService:
 
     def create(self, repair_request_data):
         initial_data = self.get_initial_schema(repair_request_data)
-        self.model.add(initial_data)
+        # print(initial_data, initial_data['id'])
+        # self.model.add(document_id=initial_data['id'], document_data=initial_data)
+        print(doc)
+        doc = self.model.document().set(initial_data)
         return initial_data
 
     def get_by_id(self, request_id):
