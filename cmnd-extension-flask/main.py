@@ -12,7 +12,7 @@ load_dotenv()
 import services.firebase.firebase as firebase
 
 # # playground
-import playground.test as test
+#import playground.test as test
 # import playground.tests.payment as paystack_test
 
 app = Flask(__name__)
