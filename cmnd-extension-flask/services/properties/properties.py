@@ -1,5 +1,5 @@
 from services.firebase.firebase import db
-from google.cloud.firestore_v1.base_query import FieldFilter
+from google.cloud.firestore_v1.base_query import FieldFilter, And
 from utils.index import get_timestamp
 from firebase_admin import firestore
 
@@ -19,7 +19,7 @@ class IPropertyService:
             'ViewDescription': "",
             'duration': 1,
             'PurchaseCount': 0,
-            'available': True, 
+            'available': True,
             'price': 0,
             'image': '',
             'PurchasedBy': '',
@@ -29,17 +29,33 @@ class IPropertyService:
         return initial_schema
 
     def get_by_id(self, id):
-        try:
-            doc_ref = self.model.where(
-                filter=FieldFilter('RoomNumber', '==', id)
-            )
-            doc = doc_ref.get()[0]
+        doc_ref = self.model.where(filter=FieldFilter('RoomNumber', '==', id))
+        doc_list = doc_ref.get()
+
+        if(doc_list.count > 0):
+            doc = doc_list[0]
             if doc.exists:
                 return doc.to_dict()
             else:
                 return None
-        except:
-            raise Exception('Property is not available!')
+        else:
+            return None
+
+
+# codeeee
+    def get_by_id_and_email(self, id, email):
+        doc_ref = self.model.where(filter=And(filters=[FieldFilter('RoomNumber', '==', id), FieldFilter('PurchasedBy', '==', email)]))
+        doc_list = doc_ref.get()
+
+        if(doc_list.count > 0):
+            doc = doc_list[0]
+            if doc.exists:
+                return doc.to_dict()
+            else:
+                return None
+        else:
+            return None
+            
 
     def get_all(self):
         rooms = []
@@ -54,13 +70,9 @@ class IPropertyService:
         doc_ref.set(initial_data)
         return initial_data
 
-
 # MY EAR!
     def update(self, id, update_data):
-
-        #TODO: after migrations, change this scheme
-        doc_ref_id = self.model.where(filter=FieldFilter('RoomNumber', '==', id)).get()[0].id
-        doc_ref = self.model.document(doc_ref_id)
+        doc_ref = self.model.document(id)
         doc_ref.set(update_data, merge=True)
         return update_data
 
@@ -72,7 +84,7 @@ class IPropertyService:
     def purchase(self, id, email):
         property = self.get_by_id(id)
         newProperty = {
-            **property, 
+            **property,
             'available': False,
             'PurchasedBy': email,
             'PurchaseDate': get_timestamp(),
@@ -80,6 +92,27 @@ class IPropertyService:
         }
         self.update(id, newProperty)
         return newProperty
+
+        
+    def obscure(self, data):
+        # Define the allowed fields to be returned
+        allowed_fields = [
+            'RoomNumber',
+            'BuildingName',
+            'RoomLatitude',
+            'RoomLongitude',
+            'RoomSize',
+            'Beds',
+            'Individuals',
+            'ViewDescription',
+            'price',
+            'available'
+        ]
+        # Filter and obscure sensitive properties
+        filtered_data = {}
+        for field in allowed_fields:
+            filtered_data[field] = data.get(field, '[Obscured]')
+        return filtered_data
 
 
 PropertyService = IPropertyService()

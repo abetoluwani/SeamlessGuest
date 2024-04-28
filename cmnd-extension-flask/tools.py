@@ -7,7 +7,7 @@ import logging
 from services.properties.properties import PropertyService
 from services.paystack.paystack import PaystackService
 from services.firebase.firebase import db
-
+from services.repairs.repairs import RepairRequestService
 
 class PropertyViewSchema(BaseModel):
     view: str = Field(..., title="View", description="Property view required")
@@ -18,30 +18,14 @@ class PropertyBedroomSchema(BaseModel):
 class PropertyAllSchema(BaseModel):
     additional_parameters: str = Field("", title="Additional Parameters", description="Additional parameters for retrieving all properties")
 
+class GetPropertyByRoomNumberSchema(BaseModel):
+    room_number: str = Field(..., title="Room Number", description="The Room Number of a property")
+
 class PaymentSchema(BaseModel):
     room_number: str = Field(..., title="Room Number", description="Room number to pay")
-    # payment_amount: float = Field(..., title="Payment Amount", description="Amount to pay, from the Property")
     email: str = Field(..., title="Email", description="Email address for payment, gotten from user input...")
 
-class CreatePaystackPageSchema(BaseModel):
-    name: str = Field(..., title="Page Name", description="Name of the page")
-    amount: int = Field(..., title="Amount", description="Amount of the page")
-    description: str = Field(..., title="Description", description="Description of the page")
 
-class InitializeTransactionSchema(BaseModel):
-    amount: int = Field(..., title="Amount", description="Amount of the transaction")
-    email: str = Field(..., title="Email", description="Email address for the transaction")
-    reference: str = Field("", title="Reference", description="Reference for the transaction")
-
-class VerifyTransactionSchema(BaseModel):
-    reference: str = Field(..., title="Reference", description="Reference for the transaction")
-
-class ChargeTransactionSchema(BaseModel):
-    authorization_code: str = Field(..., title="Authorization Code", description="Authorization code for the transaction")
-    amount: int = Field(..., title="Amount", description="Amount of the transaction")
-    email: str = Field(..., title="Email", description="Email address for the transaction")
-    reference: str = Field(..., title="Reference", description="Reference for the transaction")   
-     
 def custom_json_schema(model):
     schema = model.schema()
     properties_formatted = {
@@ -61,6 +45,11 @@ def custom_json_schema(model):
 def make_payment(room_number: str, email: str):
     try:
         property = PropertyService.get_by_id(room_number)
+        if property is None:
+            return {
+                'message': 'Property is not available!'
+            }
+
         response = PaystackService.initialize({
             'email': email,
             'amount': property['price'],
@@ -79,46 +68,78 @@ def make_payment(room_number: str, email: str):
         logging.error(f"Error making payment: {e}")
         return {"message": str(e)}
 
+
 def get_all():
-    properties = PropertyService.get_all()
+        properties = PropertyService.get_all()
 
-    # Define the allowed fields
-    allowed_fields = [
-        'RoomNumber',
-        'BuildingName',
-        'RoomLatitude',
-        'RoomLongitude',
-        'RoomSize',
-        'Beds',
-        'Individuals',
-        'ViewDescription',
-        'price',
-        'available'
-    ]
+        # Filter and obscure properties
+        filtered_properties = []
+        for property_data in properties:
+            filtered_properties.append(PropertyService.obscure(property_data))
 
-    # Filter and obscure properties
-    filtered_properties = []
-    for property_data in properties:
-        filtered_property = {}
-        for field in allowed_fields:
-            filtered_property[field] = property_data.get(field, '[Obscured]')
-        filtered_properties.append(filtered_property)
+        return filtered_properties
 
-    return filtered_properties
+def get_by_id(id):
+    property = PropertyService.get_by_id(id)
+    if property:
+        return PropertyService.obscure(property)
+    else:
+        return {"message": "Property not found!"}
+
+class RepairRequestSchema(BaseModel):
+    email: str = Field(..., title="Email", description="Email address for payment, gotten from user input...")
+    room_number: str = Field(..., title="Room Number", description="Room number requesting repair")
+    description: str = Field(..., title="Description", description="Description of the request, like a broken shower, or electricity issues")
+
+def make_repair_request(email: str, room_number: str, description: str):
+    try:
+        property = PropertyService.get_by_id_and_email(id, email)
+        if property == None:
+            return {
+                'message': "You dont own this property or the property"
+            }
+
+        # Save repair request
+        repair_request_data = {
+            'email': email,
+            'room_number': room_number,
+            'description': description
+        }
+        request = RepairRequestService.create(repair_request_data)
+
+        return {
+            'message': 'Repair request submitted successfully, You can use your Request ID to process your request',
+            'request_id': request['id'],
+        }
+    except Exception as e:
+        logging.error(f"Error submitting repair request: {e}")
+        return {"message": "Failed to submit repair request."}
+
+
+
+class GetRepairRequestByIdSchema(BaseModel):
+    request_id: str = Field(..., title="Request ID", description="The ID of the repair request, Or Ticket")
+
+def get_repair_request_by_id(request_id: str):
+    try:
+        repair_request = RepairRequestService.get_by_id(request_id)
+        if repair_request:
+            return {
+                'message': 'Repair request found.',
+                'repair_request': repair_request['id']
+            }
+        else:
+            return {
+                'message': 'Repair request not found.'
+            }
+    except Exception as e:
+        logging.error(f"Error retrieving repair request: {e}")
+        return {"message": "Failed to retrieve repair request."}
+
+
 
 # Define tool configurations here
 tools = [
-    # { // 5 bedrooms
-    #     "name": "retrieve_by_bedroom",
-    #     "description": "Retrieve properties based on the number of bedrooms",
-    #     "parameters": custom_json_schema(PropertyBedroomSchema),
-    #     "runCmd": retrieve_by_bedroom,
-    #     "isDangerous": False,
-    #     "functionType": "backend",
-    #     "isLongRunningTool": False,
-    #     "rerun": True,
-    #     "rerunWithDifferentParameters": True
-    # },
     {
         "name": "get_all_properties",
         "description": "Get all properties, and list each property information and price",
@@ -131,9 +152,20 @@ tools = [
         "rerunWithDifferentParameters": True
     },
     {
+        "name": "get_by_id",
+        "description": "Get a property, and show property information and price",
+        "parameters": GetPropertyByRoomNumberSchema.schema(),
+        "runCmd": get_by_id,
+        "isDangerous": False,
+        "functionType": "backend",
+        "isLongRunningTool": False,
+        "rerun": True,
+        "rerunWithDifferentParameters": True
+    },
+    {
         "name": "make_payment",
         "description": "Make a payment for a room, request for the users email, and attach the room id which they requested!",
-        "parameters": custom_json_schema(PaymentSchema),
+        "parameters": PaymentSchema.schema(),
         "runCmd": make_payment,
         "isDangerous": False,
         "functionType": "backend",
@@ -142,48 +174,26 @@ tools = [
         "rerunWithDifferentParameters": True
     },
 
-    # {
-    #     "name": "create_paystack_page",
-    #     "description": "Create a Paystack page",
-    #     "parameters": custom_json_schema(CreatePaystackPageSchema),
-    #     "runCmd": create_paystack_page,
-    #     "isDangerous": False,
-    #     "functionType": "backend",
-    #     "isLongRunningTool": False,
-    #     "rerun": True,
-    #     "rerunWithDifferentParameters": True
-    # },
-    # {
-    #     "name": "initialize_transaction",
-    #     "description": "Initialize a Paystack transaction",
-    #     "parameters": custom_json_schema(InitializeTransactionSchema),
-    #     "runCmd": initialize_transaction,
-    #     "isDangerous": False,
-    #     "functionType": "backend",
-    #     "isLongRunningTool": False,
-    #     "rerun": True,
-    #     "rerunWithDifferentParameters": True
-    # },
-    # {
-    #     "name": "verify_transaction",
-    #     "description": "Verify a Paystack transaction",
-    #     "parameters": custom_json_schema(VerifyTransactionSchema),
-    #     "runCmd": verify_transaction,
-    #     "isDangerous": False,
-    #     "functionType": "backend",
-    #     "isLongRunningTool": False,
-    #     "rerun": True,
-    #     "rerunWithDifferentParameters": True
-    # },
-    # {
-    #     "name": "charge_transaction",
-    #     "description": "Charge a Paystack transaction",
-    #     "parameters": custom_json_schema(ChargeTransactionSchema),
-    #     "runCmd": charge_transaction,
-    #     "isDangerous": False,
-    #     "functionType": "backend",
-    #     "isLongRunningTool": False,
-    #     "rerun": True,
-    #     "rerunWithDifferentParameters": True
-    # }
+     {
+        "name": "make_repair_request",
+        "description": "Submit a repair request for a room, request for the users email, and attach theie room id also",
+        "parameters": RepairRequestSchema.schema(),
+        "runCmd": make_repair_request,
+        "isDangerous": False,
+        "functionType": "backend",
+        "isLongRunningTool": False,
+        "rerun": True,
+        "rerunWithDifferentParameters": True
+    },
+    {
+        "name": "get_repair_request_by_id",
+        "description": "Get a repair request by its ID, request for the request ID",
+        "parameters": GetRepairRequestByIdSchema.schema(),
+        "runCmd": get_repair_request_by_id,
+        "isDangerous": False,
+        "functionType": "backend",
+        "isLongRunningTool": False,
+        "rerun": True,
+        "rerunWithDifferentParameters": True
+    }
 ]

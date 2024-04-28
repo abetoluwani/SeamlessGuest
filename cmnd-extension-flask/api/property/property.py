@@ -5,7 +5,9 @@ from services.properties.properties import PropertyService
 import json
 
 # Create Flask app instance
-app = Blueprint('property', __name__)
+app = Blueprint('property', __name__, url_prefix='/properties')
+# The Blueprint object allows you to modularize your application into smaller pieces and then register them with a Flask application.
+# In this case, we're telling Flask that the blueprint's url_prefix is /properties, so all of the routes defined within the blueprint will be prefixed with that.
 
 @app.route("/", methods=['POST'])
 def create_property():

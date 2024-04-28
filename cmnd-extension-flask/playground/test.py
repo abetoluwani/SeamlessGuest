@@ -1,6 +1,22 @@
 
 from services.properties.properties import PropertyService
 from tools import make_payment
+from services.repairs.repairs import RepairRequestService
+
+
+repair = RepairRequestService.create({
+  "email": "priscykellyr@gmail.com",
+  "description": "Leaking sink",
+  "room_number": "223"
+})
+
+print(repair)
+
+
+
+# DATA LAYER => FIrebase
+# DOMAIN LAYER => Servies
+# APPLICATION LAYER => cmnd tools...
 
 
 # print(make_payment("1", 'priscykellyr@gmail.com'))
