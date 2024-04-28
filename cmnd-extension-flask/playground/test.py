@@ -1,9 +1,7 @@
-
 from services.properties.properties import PropertyService
 from tools import make_payment
 from services.repairs.repairs import RepairRequestService
-
-
+from utils import index
 repair = RepairRequestService.create({
   "id": "",
   "email": "prisr@gmail.com",
@@ -13,7 +11,8 @@ repair = RepairRequestService.create({
 
 print(repair)
 
-
+# hi = index.create_id()
+# print(hi)
 
 # DATA LAYER => FIrebase
 # DOMAIN LAYER => Servies

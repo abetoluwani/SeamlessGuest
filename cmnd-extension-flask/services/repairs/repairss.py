@@ -17,9 +17,9 @@ class IRepairRequestService:
 
     def create(self, repair_request_data):
         initial_data = self.get_initial_schema(repair_request_data)
-        id = initial_data['id']
+        id = create_id()
         doc_ref = self.model.document(id)
-        doc_ref.set(initial_data)
+        doc_ref.set({**initial_data, 'id': id})
         return initial_data
 
     def get_by_id(self, request_id):
