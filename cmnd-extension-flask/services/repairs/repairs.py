@@ -22,7 +22,7 @@ class IRepairRequestService:
             'id': create_id(),
             'room_number': "",
             'description': "",
-            'status': "pending",
+            'status': "pending",    
             **(data or {})
         }
         return initial_schema

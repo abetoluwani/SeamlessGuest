@@ -40,6 +40,17 @@ def custom_json_schema(model):
         "properties": properties_formatted,
         "required": schema.get("required", [])
     }
+    
+def calculate_total_profit():
+    total_profit = 0
+    rooms = db.collection("rooms").get()
+    for room in rooms:
+        data = room.to_dict()
+        price = data.get("price", 0)
+        purchase_count = data.get("PurchaseCount", 0)
+        room_profit = price * purchase_count
+        total_profit += room_profit
+    return total_profit
 
 def make_payment(room_number: str, email: str):
     try:
