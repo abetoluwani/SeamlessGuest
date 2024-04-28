@@ -5,5 +5,5 @@ pydantic
 flask
 requests
 firebase-admin
-dotenv
+python-dotenv
 uuid
